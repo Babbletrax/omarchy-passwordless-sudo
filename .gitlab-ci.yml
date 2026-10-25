@@ -1,0 +1,96 @@
+# CI for the passwordless sudo Omarchy plugin.
+#
+#   lint      shellcheck on every script; leak-check for private details (repo is mirrored publicly);
+#             no-hardcoded-user for literal home paths or fixed account names
+#   validate  bash syntax, Omarchy's plugin validator + consistency/security invariant checks
+#   test      real enable/disable/toggle runs against sudo in a throwaway Arch container
+#   security  GitLab secret detection, with a gate that fails on any finding
+#
+# A weekly schedule re-runs everything so new Arch sudo releases or new secret
+# detection rules are caught without a code change.
+
+stages:
+  - lint
+  - validate
+  - test
+  - security
+
+include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+shellcheck:
+  stage: lint
+  image:
+    name: koalaman/shellcheck-alpine:v0.10.0
+  script:
+    - shellcheck --version
+    - shellcheck --severity=style --shell=bash toggle-passwordless-sudo tests/*.sh ci/leak-check.sh ci/no-hardcoded-user.sh
+    # Vendored upstream file: only fail on warnings and above.
+    - shellcheck --severity=warning --shell=bash ci/omarchy-plugin-validate
+
+leak-check:
+  stage: lint
+  image: alpine:3.20
+  variables:
+    GIT_DEPTH: "0"   # scan the full history, not a shallow clone
+  before_script:
+    - apk add --no-cache bash git grep sed coreutils
+  script:
+    - bash ci/leak-check.sh HEAD
+
+no-hardcoded-user:
+  stage: lint
+  image: alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
+  before_script:
+    - apk add --no-cache bash git sed coreutils
+  script:
+    - bash ci/no-hardcoded-user.sh HEAD
+
+plugin-validate:
+  stage: validate
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache bash jq findutils grep coreutils
+  script:
+    - for f in toggle-passwordless-sudo tests/*.sh ci/*.sh ci/omarchy-plugin-validate; do bash -n "$f"; done
+    - bash ci/omarchy-plugin-validate .
+    - bash tests/static-checks.sh
+
+sudo-integration:
+  stage: test
+  image: archlinux:base
+  variables:
+    PASSWORDLESS_SUDO_TEST_SANDBOX: "1"
+  before_script:
+    - pacman -Sy --noconfirm --needed sudo util-linux shadow
+    - sudo -V | head -1
+  script:
+    - bash tests/integration.sh
+
+secret_detection:
+  stage: security
+  variables:
+    SECRET_DETECTION_HISTORIC_SCAN: "true"
+
+secret-detection-gate:
+  stage: security
+  image: alpine:3.20
+  needs:
+    - job: secret_detection
+      artifacts: true
+  before_script:
+    - apk add --no-cache jq
+  script:
+    - test -f gl-secret-detection-report.json
+    - jq -r '.vulnerabilities[] | "\(.severity)\t\(.location.file):\(.location.start_line)\t\(.name)"' gl-secret-detection-report.json
+    - test "$(jq '.vulnerabilities | length' gl-secret-detection-report.json)" -eq 0

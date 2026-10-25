@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "passwordless-sudo-toggle",
+  "name": "Passwordless sudo",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Toggle passwordless sudo for your own account from the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Passwordless sudo",
+    "description": "Shows passwordless sudo state and toggles it with authentication.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
