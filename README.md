@@ -114,7 +114,7 @@ maintaining and testing this plugin. Copy it into your agent's skills directory 
 | Stage | Job | What it checks |
 |---|---|---|
 | lint | `shellcheck` | shellcheck on every script |
-| sync | `github-sync` | Hourly (GitLab only): if a pull request was merged on GitHub, opens a GitLab merge request with those exact commits, which merges itself once the pipeline passes |
+| sync | `github-sync` | Hourly (GitLab only): if a pull request was merged on GitHub, opens a GitLab merge request with those exact commits. `ci/risk-report.sh` rates it: low risk (docs) merges itself once the pipeline passes; medium risk (tests, CI) and high risk (helper, widget, agent skills, safety checks) wait for the maintainer's approval, and no pipeline runs until then |
 | lint | `no-hardcoded-user` | Fails if any file, in any commit, hardcodes a home directory (`/home/<name>`) or gives the helper a fixed account name |
 | lint | `leak-check` | `ci/leak-check.sh` fails if any committed file or commit message matches the owner's private patterns. The patterns live in a masked CI variable (and a local file for the pre-push hook), never in the repo |
 | validate | `plugin-validate` | `bash -n` syntax check, Omarchy's plugin validator (vendored in `ci/`) and `tests/static-checks.sh`: manifest/widget/helper agree, and the helper keeps its security rules (target user from `pkexec`/`sudo` only, never root, `visudo` before install, `pkexec` to enable, 0440 mode, no `eval` or downloads) |

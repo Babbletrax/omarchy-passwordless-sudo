@@ -17,6 +17,9 @@ Contributions are welcome. Open an issue or a pull request on
   `main`, and never executes code from your pull request.
 - The maintainer also keeps a private copy of the repo, which re-runs the same
   checks on every change. Merged commits keep their IDs and authorship.
+- Changes to the helper, the widget, agent skills, tests or CI get an extra
+  manual review by the maintainer before they enter the private build, so they
+  may take a little longer to show up there.
 
 ## Ground rules
 
