@@ -9,8 +9,12 @@ A native Omarchy Shell plugin (`passwordless-sudo-toggle`). Source:
 https://github.com/Babbletrax/omarchy-passwordless-sudo
 
 The live install at `~/.config/omarchy/plugins/passwordless-sudo-toggle/` is a
-git checkout of the repo. Make changes there and commit them. Don't keep a
-second copy of the plugin files anywhere else.
+git checkout of the repo. Don't keep a second copy of the plugin files
+anywhere else.
+
+Changes reach `main` only through reviewed pull/merge requests whose CI
+passes. Put each change on a branch and open a request; never push to `main`
+directly. See `CONTRIBUTING.md`.
 
 ## Layout
 

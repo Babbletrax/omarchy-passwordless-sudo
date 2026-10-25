@@ -1,15 +1,25 @@
 # CI for the passwordless sudo Omarchy plugin.
 #
+#   sync      github-sync: brings commits merged on GitHub back via a merge request
 #   lint      shellcheck on every script; leak-check for private details (repo is mirrored publicly);
 #             no-hardcoded-user for literal home paths or fixed account names
-#   validate  bash syntax, Omarchy's plugin validator + consistency/security invariant checks
+#   validate  bash syntax, Omarchy's plugin validator + consistency/security invariant checks;
+#             omarchy-upstream-check against the latest Omarchy (scheduled)
 #   test      real enable/disable/toggle runs against sudo in a throwaway Arch container
 #   security  GitLab secret detection, with a gate that fails on any finding
 #
-# A weekly schedule re-runs everything so new Arch sudo releases or new secret
-# detection rules are caught without a code change.
+# Schedules:
+#   weekly  full suite plus omarchy-upstream-check, so new Arch sudo releases,
+#           Omarchy changes and new secret detection rules are caught without
+#           a code change
+#   hourly  PIPELINE_KIND=github-sync, which runs only the github-sync job
+#
+# Changes reach main only through merge requests (fast-forward, pipeline must
+# pass). GitLab mirrors only main to GitHub, and never overwrites commits that
+# exist only on GitHub.
 
 stages:
+  - sync
   - lint
   - validate
   - test
@@ -26,17 +36,41 @@ workflow:
     - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG
 
+# The regular suite runs everywhere except the hourly sync-only pipeline.
+.suite:
+  rules:
+    - if: $PIPELINE_KIND == "github-sync"
+      when: never
+    - when: on_success
+
+github-sync:
+  stage: sync
+  image: alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $PIPELINE_KIND == "github-sync" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  before_script:
+    - apk add --no-cache bash git curl jq
+  script:
+    - bash ci/github-sync.sh
+
 shellcheck:
+  extends: .suite
   stage: lint
   image:
     name: koalaman/shellcheck-alpine:v0.10.0
   script:
     - shellcheck --version
-    - shellcheck --severity=style --shell=bash toggle-passwordless-sudo tests/*.sh ci/leak-check.sh ci/no-hardcoded-user.sh
+    - shellcheck --severity=style --shell=bash toggle-passwordless-sudo tests/*.sh ci/*.sh
     # Vendored upstream file: only fail on warnings and above.
     - shellcheck --severity=warning --shell=bash ci/omarchy-plugin-validate
 
 leak-check:
+  extends: .suite
   stage: lint
   image: alpine:3.20
   variables:
@@ -47,6 +81,7 @@ leak-check:
     - bash ci/leak-check.sh HEAD
 
 no-hardcoded-user:
+  extends: .suite
   stage: lint
   image: alpine:3.20
   variables:
@@ -57,6 +92,7 @@ no-hardcoded-user:
     - bash ci/no-hardcoded-user.sh HEAD
 
 plugin-validate:
+  extends: .suite
   stage: validate
   image: alpine:3.20
   before_script:
@@ -66,7 +102,25 @@ plugin-validate:
     - bash ci/omarchy-plugin-validate .
     - bash tests/static-checks.sh
 
+omarchy-upstream-check:
+  stage: validate
+  image: alpine:3.20
+  rules:
+    - if: $PIPELINE_KIND == "github-sync"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web"
+    - changes:
+        - BarWidget.qml
+        - manifest.json
+        - ci/omarchy-plugin-validate
+        - ci/omarchy-upstream-check.sh
+  before_script:
+    - apk add --no-cache bash git jq findutils grep coreutils diffutils
+  script:
+    - bash ci/omarchy-upstream-check.sh
+
 sudo-integration:
+  extends: .suite
   stage: test
   image: archlinux:base
   variables:
@@ -78,11 +132,17 @@ sudo-integration:
     - bash tests/integration.sh
 
 secret_detection:
+  # The template brings its own rules, which would win over `extends`.
+  rules:
+    - if: $PIPELINE_KIND == "github-sync"
+      when: never
+    - when: on_success
   stage: security
   variables:
     SECRET_DETECTION_HISTORIC_SCAN: "true"
 
 secret-detection-gate:
+  extends: .suite
   stage: security
   image: alpine:3.20
   needs:

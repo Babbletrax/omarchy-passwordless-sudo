@@ -1,0 +1,44 @@
+# Checks pull requests for the maintainer's private details (hostnames,
+# account names and similar), using patterns stored as a repository secret.
+#
+# Security: this uses pull_request_target so the secret is available for pull
+# requests from forks. It therefore only ever runs the trusted copy of
+# ci/leak-check.sh from the default branch. The pull request's commits are
+# fetched as data and searched with git grep; none of its code is executed.
+name: Leak check
+
+on:
+  pull_request_target:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  leak-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the pull request as data (not executed)
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "pull/${PR_NUMBER}/head:refs/remotes/pr/head"
+
+      - name: Scan for private details
+        env:
+          LEAK_PATTERNS_B64: ${{ secrets.LEAK_PATTERNS_B64 }}
+          TARGET: ${{ github.event_name == 'pull_request_target' && 'refs/remotes/pr/head' || 'HEAD' }}
+        run: |
+          if [ -z "$LEAK_PATTERNS_B64" ]; then
+            echo "leak-check: no patterns configured for this repository; skipping"
+            exit 0
+          fi
+          bash ci/leak-check.sh "$TARGET"

@@ -98,6 +98,12 @@ If the plugin was removed while it was still on, delete the rule by hand:
 sudo rm "/etc/sudoers.d/90-passwordless-sudo-$USER" "/var/lib/passwordless-sudo-$USER.enabled"
 ```
 
+## Contributing
+
+Issues and pull requests are welcome on GitHub. See [CONTRIBUTING.md](CONTRIBUTING.md)
+for how changes are tested and land, and [SECURITY.md](SECURITY.md) to report a
+vulnerability privately.
+
 ## Agent skill
 
 `skills/omarchy-passwordless-sudo/SKILL.md` is a generic agent skill for installing,
@@ -108,13 +114,20 @@ maintaining and testing this plugin. Copy it into your agent's skills directory 
 | Stage | Job | What it checks |
 |---|---|---|
 | lint | `shellcheck` | shellcheck on every script |
+| sync | `github-sync` | Hourly (GitLab only): if a pull request was merged on GitHub, opens a GitLab merge request with those exact commits, which merges itself once the pipeline passes |
 | lint | `no-hardcoded-user` | Fails if any file, in any commit, hardcodes a home directory (`/home/<name>`) or gives the helper a fixed account name |
 | lint | `leak-check` | `ci/leak-check.sh` fails if any committed file or commit message matches the owner's private patterns. The patterns live in a masked CI variable (and a local file for the pre-push hook), never in the repo |
 | validate | `plugin-validate` | `bash -n` syntax check, Omarchy's plugin validator (vendored in `ci/`) and `tests/static-checks.sh`: manifest/widget/helper agree, and the helper keeps its security rules (target user from `pkexec`/`sudo` only, never root, `visudo` before install, `pkexec` to enable, 0440 mode, no `eval` or downloads) |
+| validate | `omarchy-upstream-check` | Weekly, and when the widget or validator changes: checks the plugin against the latest Omarchy (validator still matches upstream, upstream accepts the plugin, and the bar widget API it uses still exists) |
 | test | `sudo-integration` | `tests/integration.sh` enables, toggles and disables the rule against real `sudo` in a throwaway Arch container, including refusal of tampered or pre-existing files |
 | security | `secret_detection` + `secret-detection-gate` | GitLab secret detection over the full history; the gate fails the pipeline on any finding |
 
 A weekly pipeline schedule re-runs everything.
+
+The table above is the private GitLab pipeline, where changes land. On GitHub,
+every pull request runs the same regression suite in GitHub Actions
+(`.github/workflows/ci.yml`), plus a leak check that only runs trusted code
+from `main` (`.github/workflows/leak-check.yml`).
 
 `tests/static-checks.sh` is read-only and safe to run locally.
 `tests/integration.sh` writes to `/etc/sudoers.d` and refuses to run outside a

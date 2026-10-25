@@ -1,6 +1,6 @@
 #!/bin/bash
-# Vendored from Omarchy (MIT, https://github.com/basecamp/omarchy) /usr/share/omarchy/bin/omarchy-plugin-validate
-# Re-sync with: cp /usr/share/omarchy/bin/omarchy-plugin-validate ci/ (then re-add this header)
+# Vendored from Omarchy (MIT, https://github.com/omacom/omarchy) bin/omarchy-plugin-validate @ 4fa93e9
+# Re-sync from upstream when CI job omarchy-upstream-check reports drift (keep these two header lines).
 
 # omarchy:summary=Validate a plugin folder against the Omarchy plugin manifest schema
 # omarchy:group=plugin
@@ -68,12 +68,12 @@ jq -e '
   if ((.barWidget? | type) == "object" and (.barWidget | has("defaultSection"))) then
     .barWidget.defaultSection as $section
     | ($section | type) == "string"
-      and (["left", "center", "right"] | index($section)) != null
+      and (["left", "centerBegin", "center", "centerEnd", "tray", "right"] | index($section)) != null
   else
     true
   end
 ' "$MANIFEST" >/dev/null 2>&1 \
-  || fail "'barWidget.defaultSection' must be left, center, or right"
+  || fail "'barWidget.defaultSection' must be left, centerBegin, center, centerEnd, tray, or right"
 
 # Read each entry point as a JSON-encoded string (one per line), then decode it,
 # so a value that itself contains a newline stays one literal path instead of

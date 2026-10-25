@@ -1,0 +1,51 @@
+# Regression tests for pull requests on GitHub.
+#
+# GitHub is a mirror: the main repo runs the same checks (plus a private leak
+# check) in GitLab CI before anything lands. This workflow gives contributors
+# the same regression results on their pull requests.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Shellcheck
+        run: |
+          shellcheck --version
+          shellcheck --severity=style --shell=bash toggle-passwordless-sudo tests/*.sh ci/*.sh
+          shellcheck --severity=warning --shell=bash ci/omarchy-plugin-validate
+
+      - name: Bash syntax
+        run: for f in toggle-passwordless-sudo tests/*.sh ci/*.sh ci/omarchy-plugin-validate; do bash -n "$f"; done
+
+      - name: Omarchy plugin validator
+        run: bash ci/omarchy-plugin-validate .
+
+      - name: Consistency and security invariants
+        run: bash tests/static-checks.sh
+
+      - name: No hardcoded user names or home paths
+        run: bash ci/no-hardcoded-user.sh HEAD
+
+      - name: Sudo integration tests (throwaway Arch container)
+        run: |
+          docker run --rm -e PASSWORDLESS_SUDO_TEST_SANDBOX=1 -v "$PWD":/w:ro -w /w archlinux:base \
+            bash -c 'pacman -Sy --noconfirm --needed sudo util-linux shadow >/dev/null && sudo -V | head -1 && bash tests/integration.sh'
