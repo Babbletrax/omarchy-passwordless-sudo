@@ -1,0 +1,80 @@
+name: Bug report
+description: Something doesn't work as described in the README.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security problems** (for example, the helper acting
+        for the wrong account, or enabling without authentication) must be reported
+        privately via the Security tab, not here.
+
+        **Before pasting logs, remove anything personal**: your user name, hostnames,
+        IP addresses and home directory paths.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Left-click the padlock
+        2. Authenticate
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: state
+    attributes:
+      label: What does the bar icon show right now?
+      options:
+        - Closed padlock (off)
+        - Open padlock (on)
+        - Spinner (stuck changing)
+        - The widget is missing
+    validations:
+      required: true
+  - type: input
+    id: omarchy-version
+    attributes:
+      label: Omarchy version
+      description: Output of `omarchy-version`
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin commit
+      description: Output of `git -C ~/.config/omarchy/plugins/passwordless-sudo-toggle rev-parse --short HEAD`
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Helper status and logs
+      description: |
+        Output of:
+        `~/.config/omarchy/plugins/passwordless-sudo-toggle/toggle-passwordless-sudo --status; echo "exit $?"`
+        and `journalctl -t passwordless-sudo -n 20 --no-pager`.
+        Remove your user name, hostnames and IPs first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This is not a security vulnerability (those go through the Security tab).
+          required: true
+        - label: I removed my user name, hostnames, IPs and home paths from anything pasted above.
+          required: true
