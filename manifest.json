@@ -3,7 +3,9 @@
   "id": "passwordless-sudo-toggle",
   "name": "Passwordless sudo",
   "version": "1.0.0",
+  "author": "Babbletrax",
   "license": "MIT",
+  "homepage": "https://github.com/Babbletrax/omarchy-passwordless-sudo",
   "description": "Toggle passwordless sudo for your own account from the Omarchy bar.",
   "kinds": [
     "bar-widget"
